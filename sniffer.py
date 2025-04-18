@@ -1,16 +1,10 @@
 import sys
 import socket
 import struct
-import textwrap
-#bruh
+import select
+import output
 
-def format_multiline_data(prefix, string, size=80):
-    size -= len(prefix)
-    if isinstance(string, bytes):
-        string = ''.join(r'\x[:02x]'.format(byte) for byte in string)
-        if size % 2:
-            size -= 1
-    return '\n'.join([prefix + line for line in textwrap.wrap(string, size)])
+
 
 def ipv6_convert(addr):
     hex_converted = []
@@ -83,99 +77,66 @@ def tcp_segment(data):
     flag_fin = flags & 1
     return src_port, dest_port, sequence_num, ack, flag_urg, flag_ack, flag_psh, flag_rst, flag_syn, flag_fin, data[offset:]
     
-    
+def identify_transport_layer(ip_proto, ip_payload):
+    if ip_proto == 1:
+        icmp_type, code, checksum, data = icmp_packet(ip_payload)
+        output.icmpv4_packet(icmp_type, code, checksum, data)
+    elif ip_proto == 6:
+        (src_port, dest_port, sequence_num, ack, flag_urg, flag_ack, flag_psh, flag_rst, flag_syn, flag_fin, data) = tcp_segment(ip_payload)
+        output.tcp_packet(src_port, dest_port, sequence_num, ack, flag_urg, flag_ack, flag_psh, flag_rst, flag_syn, flag_fin, data)              
+    elif ip_proto == 17:
+        src_port, dest_port, length, data = udp_segment(ip_payload)
+        output.udp_packet(src_port, dest_port, length, data)
+    elif ip_proto == 58:
+        icmp_type, code, checksum, data = icmpv6_packet(ip_payload)
+        output.icmpv6_header(icmp_type, code, checksum, data)
+    else:
+        output.unkown_data(ip_payload)
+
+
 
 def main():
-    sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
-    
+    eth_sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
+    eth_sock.bind(('enp0s3', 0))
+    wifi_sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
+    wifi_sock.bind(('wlxe84e066ce852', 0))
     while True:
-        data, addr = sock.recvfrom(65565)
-        mac_dest, mac_src, eth_proto, payload = eth_unpack(data)
-        eth_proto = int(eth_proto, 16)
-        print("\nEthernet Frame:")
-        print("\tDestination: ", mac_dest, " Source: ", mac_src, " Protocol: ", eth_proto)
-        
-        if eth_proto < 0x600:
-            ieee_header = IEEE_802_unpack(payload)
-            if ieee_header['type'] == "SNAP":
-                print('\tIEEE 802.3 LLC + SNAP HEADER:')
-                print('OUI: ', ieee_header['oui'], ' Protocol ID: ', ieee_header['pid'])
-                eth_proto = ieee_header['pid']
+        r, _, _, = select.select([wifi_sock, eth_sock], [], [])
+        for sock in r:
+            data, addr = sock.recvfrom(65565)
+            if sock == wifi_sock:
+                print("802.11, WIFI FRAME:", data.hex()[:50])
+
+            if sock == eth_sock:
+                mac_dest, mac_src, eth_proto, payload = eth_unpack(data)
                 eth_proto = int(eth_proto, 16)
+                output.ethernet_frame(eth_proto, mac_dest, mac_src)
                 
+                
+                if eth_proto < 0x600:
+                    ieee_header = IEEE_802_unpack(payload)
+                    if ieee_header['type'] == "SNAP":
+                        output.snap_header(ieee_header['oui'], ieee_header['pid'])
+                        eth_proto = ieee_header['pid']
+                        eth_proto = int(eth_proto, 16)
+                        
 
-            elif ieee_header['type'] == "LLC":
-                print('\tIEEE 802.3 LLC Header:')
-                print('DSAP: ', ieee_header['dsap'], ' SSAP: ', ieee_header['ssap'], ' Control: ', ieee_header['control'])
 
+                    elif ieee_header['type'] == "LLC":
+                        output.llc_header(ieee_header['dsap'], ieee_header['ssap'], ieee_header['control'])
 
-        if eth_proto == 0x800:
-            version, ttl, ip_proto, ip_src, ip_dest, header_length, ip_payload = ipv4_unpack(payload)
-            print("\tIPv4 PACKET:")
-            print("\t\tVersion: ", version, " Header Length: ", header_length, " TTL: ", ttl)
-            print("\t\tSOURCE: ", ip_src, " DEST: ", ip_dest, " PROTOCOL: ", ip_proto)
+                #IPv4
+                if eth_proto == 0x800:
+                    version, ttl, ip_proto, ip_src, ip_dest, header_length, ip_payload = ipv4_unpack(payload)
+                    output.ipv4_header(version, header_length, ttl, ip_src, ip_dest, ip_proto)
+                    identify_transport_layer(ip_proto, ip_payload)
+                    
 
-            if ip_proto == 1:
-                icmp_type, code, checksum, data = icmp_packet(ip_payload)
-                print("\tICMP Packet:")
-                print("\t\tType: ", icmp_type, " Code: ", code, " Checksum: ", checksum)
-                print("\t\tData:")
-                print(format_multiline_data("\t\t\t", data))
-            elif ip_proto == 6:
-                (src_port, dest_port, sequence_num, ack, flag_urg, flag_ack, flag_psh, flag_rst, flag_syn, flag_fin, data) = tcp_segment(ip_payload)
-                print("\tTCP segment:")
-                print("\t\tSource Port: ", src_port, " Destination Port: ", dest_port)
-                print("\t\tSequence: ", sequence_num, " Acknowledgement: ", ack)
-                print("\t\tFlags:")
-                print("\t\t\tURG: ", flag_urg, " ACK: ", flag_ack, " PSH: ", flag_psh, " RST: ", flag_rst, " SYN: ", flag_syn, " FIN: ", flag_fin)
-                print("\t\tData:")
-                print(format_multiline_data("\t\t\t", data))
-            elif ip_proto == 17:
-                src_port, dest_port, length, data = udp_segment(ip_payload)
-                print("\tUDP Segment:")
-                print("\t\tSource Port: ", src_port, " Destination Port: ", dest_port, " Length: ", length)
-                print(format_multiline_data("\t\t", data))
-            else:
-                print("\tData: ")
-                print(format_multiline_data("\t\t", ip_payload))
-
-        #IPv6
-        elif eth_proto == 0x86dd:
-            version, traffic, flow, payload_length, next_header, hop, ip_src, ip_dest, ip_payload = ipv6_unpack(payload)
-            print("\tIPv6 PACKET:")
-            print("\t\tVersion: ", version, " Traffic Class: ", traffic, " Flow: ", flow)
-            print("\t\tPayload Length: ", payload_length, " Next Header: ", next_header, " Hop Limit: ", hop)
-            print("\t\tSOURCE: ", ip_src, " DEST: ", ip_dest)
-
-            if next_header == 1:
-                icmp_type, code, checksum, data = icmp_packet(ip_payload)
-                print("\tICMP Packet:")
-                print("\t\tType: ", icmp_type, " Code: ", code, " Checksum: ", checksum)
-                print("\t\tData:")
-                print(format_multiline_data("\t\t\t", data))
-            elif next_header == 6:
-                (src_port, dest_port, sequence_num, ack, flag_urg, flag_ack, flag_psh, flag_rst, flag_syn, flag_fin, data) = tcp_segment(ip_payload)
-                print("\tTCP segment:")
-                print("\t\tSource Port: ", src_port, " Destination Port: ", dest_port)
-                print("\t\tSequence: ", sequence_num, " Acknowledgement: ", ack)
-                print("\t\tFlags:")
-                print("\t\t\tURG: ", flag_urg, " ACK: ", flag_ack, " PSH: ", flag_psh, " RST: ", flag_rst, " SYN: ", flag_syn, " FIN: ", flag_fin)
-                print("\t\tData:")
-                print(format_multiline_data("\t\t\t", data))
-            elif next_header == 17:
-                src_port, dest_port, length, data = udp_segment(ip_payload)
-                print("\tUDP Segment:")
-                print("\t\tSource Port: ", src_port, " Destination Port: ", dest_port, " Length: ", length)
-                print(format_multiline_data("\t\t", data))
-            elif next_header == 58:
-                icmp_type, code, checksum, data = icmpv6_packet(ip_payload)
-                print("\tICMPv6 Packet:")
-                print("\t\tType: ", icmp_type, " Code: ", code, " Checksum: ", checksum)
-                print("\t\tData:")
-                print(format_multiline_data("\t\t\t", data))
-            else:
-                print("\tData: ")
-                print(format_multiline_data("\t\t", ip_payload))    
+                #IPv6
+                elif eth_proto == 0x86dd:
+                    version, traffic, flow, payload_length, next_header, hop, ip_src, ip_dest, ip_payload = ipv6_unpack(payload)
+                    output.ipv6_header(version, traffic, flow, payload_length, next_header, hop, ip_src, ip_dest)
+                    identify_transport_layer(next_header, ip_payload)    
 
 
 
