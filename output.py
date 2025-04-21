@@ -8,6 +8,24 @@ def format_multiline_data(prefix, string, size=80):
             size -= 1
     return '\n'.join([prefix + line for line in textwrap.wrap(string, size)])
 
+def wifi_header(header):
+    print("\t802.11, WIFI FRAME:")
+    print(f"\tDuration: {header["duration"]} Frame Control Header:")
+    print(f"\t\tVersion: {header["version"]} Frame Type: {header["ftype"]} Subtype: {header["subtype"]}")
+    print("\t\tFlags:")
+    print(f"\t\t\tTo DS: {header["flags"]["to_ds"]} From DS: {header["flags"]["from_ds"]} More Frag: {header["flags"]["more_frag"]} Retry: {header["flags"]["retry"]}")
+    print(f"\t\t\tPower Management: {header["flags"]["power_mgmt"]} More Data: {header["flags"]["more_data"]} Protected Frame: {header["flags"]["protected_frame"]} +HTC/Order: {header["flags"]["htc_order"]}")
+    if header["flags"]["to_ds"] == 0 and header["flags"]["from_ds"] == 0:
+        print(f"\t\tDestination: {header["addr_1"]} Source: {header["addr_2"]} BSSID: {header["addr_3"]}")
+    elif header["flags"]["to_ds"] == 1 and header["flags"]["from_ds"] == 0:
+        print(f"\t\tBSSID: {header["addr_1"]} Source: {header["addr_2"]} Destination: {header["addr_3"]}")
+    elif header["flags"]["to_ds"] == 0 and header["flags"]["from_ds"] == 1:
+        print(f"\t\tDestination: {header["addr_1"]} BSSID: {header["addr_2"]} Source: {header["addr_3"]}")
+    else:
+        print(f"\t\tReceiver Address: {header["addr_1"]} Transmitter Address: {header["addr_2"]} Destination: {header["addr_3"]} Source: {header["addr_4"]}")
+
+    
+
 def ethernet_frame(eth_proto, mac_dest, mac_src): 
     print("\nEthernet Frame:")
     print("\tDestination: ", mac_dest, " Source: ", mac_src, " Protocol: ", eth_proto)
@@ -30,6 +48,16 @@ def ipv4_header(version, header_length, ttl, ip_src, ip_dest, ip_proto):
     print("\tIPv4 PACKET:")
     print("\t\tVersion: ", version, " Header Length: ", header_length, " TTL: ", ttl)
     print("\t\tSOURCE: ", ip_src, " DEST: ", ip_dest, " PROTOCOL: ", ip_proto)
+
+def arp_message(hw_type, p_type, hw_len, p_len, op, sender_mac, sender_ip, target_mac, target_ip):
+    print("\tARP:")
+    print(f"\t\tHardware Type: {hw_type} Protocol Type: {p_type} Hardware Length: {hw_len} Protocol Length: {p_len}")
+    if op == "1" or op == 1:
+        print(f"\t\tRequest: who has IP:{target_ip} tell IP:{sender_ip}")
+    elif op == "2" or op == 2:
+        print(f"\t\tReply: IP:{sender_ip} is at Hardware: {sender_mac}")
+    else:
+        print("unknown arp type")
 
 def icmpv6_header(icmp_type, code, checksum, data):
     print("\tICMPv6 Packet:")
