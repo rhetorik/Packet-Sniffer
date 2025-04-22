@@ -22,7 +22,17 @@ def frame_control_flags(flags):
             "more_data": ((flags >> 5) & 1),
             "protected_frame": ((flags >> 6) & 1),
             "htc_order": ((flags >> 7) & 1)}
+
+
+
 def wifi_unpack(data):
+    radiotap_version = data[0]
+    if radiotap_version != 0:
+        print("NO RADIOTAP HEADER THIS MIGHT BE ETHERNET")
+        return
+    radiotap_length = struct.unpack("<2x H", data[:4])[0]
+    data = data[radiotap_length:]
+
     frame_control, duration = struct.unpack("<HH", data[:4])
     version = frame_control & 0b11
     ftype = (frame_control >> 2) & 0b11
@@ -32,7 +42,6 @@ def wifi_unpack(data):
     addr_2 = ":".join(map('{:02x}'.format, data[10:16])).upper(),
     addr_3 = ":".join(map('{:02x}'.format, data[16:22])).upper(),
     addr_4 = None
-    sequence_control = struct.unpack("<H", data[22:24])[0]
     qos = None
 
     header_length = 24
@@ -51,7 +60,8 @@ def wifi_unpack(data):
     if flags["htc_order"]:
         header_length += 4
         start += 4
-    return {"frame_control":frame_control,
+    if ftype != 2:
+        return {"frame_control":frame_control,
             "duration": duration,
             "version": version,
             "ftype": ftype,
@@ -61,10 +71,41 @@ def wifi_unpack(data):
             "addr_2": addr_2,
             "addr_3": addr_3,
             "addr_4": addr_4,
-            "sequence_control": sequence_control,
             "qos": qos,
             "payload":data[start:]}
     
+    llc = IEEE_802_unpack(data[header_length:])
+    if llc['type'] == "LLC":
+        output.llc_header(llc['dsap'], llc['ssap'], llc['control'])
+        return {"frame_control":frame_control,
+            "duration": duration,
+            "version": version,
+            "ftype": ftype,
+            "subtype": subtype,
+            "flags": flags,
+            "addr_1": addr_1,
+            "addr_2": addr_2,
+            "addr_3": addr_3,
+            "addr_4": addr_4,
+            "qos": qos,
+            "payload":llc['payload']}
+    elif llc['type'] == "SNAP":
+        eth_proto = llc['pid']
+        eth_proto = int(eth_proto, 16)
+        print("WIFI ETHERTYPE: ", eth_proto)
+        identify_ethertype(eth_proto, llc['payload'])
+        return {"frame_control":frame_control,
+            "duration": duration,
+            "version": version,
+            "ftype": ftype,
+            "subtype": subtype,
+            "flags": flags,
+            "addr_1": addr_1,
+            "addr_2": addr_2,
+            "addr_3": addr_3,
+            "addr_4": addr_4,
+            "qos": qos,
+            "payload":llc['payload']}
     
 
 
@@ -161,21 +202,41 @@ def identify_transport_layer(ip_proto, ip_payload):
     else:
         output.unkown_data(ip_payload)
 
+def identify_ethertype(eth_proto, data):
+    #IPv4
+    if eth_proto == 0x800:
+        version, ttl, ip_proto, ip_src, ip_dest, header_length, ip_payload = ipv4_unpack(data)
+        output.ipv4_header(version, header_length, ttl, ip_src, ip_dest, ip_proto)
+        identify_transport_layer(ip_proto, ip_payload)
+                    
+
+    #IPv6
+    elif eth_proto == 0x86dd:
+        version, traffic, flow, payload_length, next_header, hop, ip_src, ip_dest, ip_payload = ipv6_unpack(data)
+        output.ipv6_header(version, traffic, flow, payload_length, next_header, hop, ip_src, ip_dest)
+        identify_transport_layer(next_header, ip_payload)
+
+    #ARP
+    elif eth_proto == 0x806:
+        hw_type, p_type, hw_len, p_len, op, sender_mac, sender_ip, target_mac, target_ip = arp_unpack(data)
+        output.arp_message(hw_type, p_type, hw_len, p_len, op, sender_mac, sender_ip, target_mac, target_ip)
+
 
 
 def main():
     eth_sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
     eth_sock.bind(('enp0s3', 0))
-    #wifi_sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
-    #wifi_sock.bind(('wlan0', 0))
+    wifi_sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
+    wifi_sock.bind(('wlan0', 0))
     while True:
-        #r, _, _, = select.select([wifi_sock, eth_sock], [], [])
-        #for sock in r:
-            sock = eth_sock
+        r, _, _, = select.select([wifi_sock, eth_sock], [], [])
+        for sock in r:
+            
             data, addr = sock.recvfrom(65565)
-            #if sock == wifi_sock:
-            #    wifi_header = wifi_unpack(data)
-            #    output.wifi_header(wifi_header)
+            if sock == wifi_sock:
+                wifi_header = wifi_unpack(data)
+                if wifi_header and wifi_header['ftype'] == 2:
+                    output.wifi_header(wifi_header)
 
 
             #Ethernet Frame
@@ -192,29 +253,16 @@ def main():
                         output.snap_header(ieee_header['oui'], ieee_header['pid'])
                         eth_proto = ieee_header['pid']
                         eth_proto = int(eth_proto, 16)
+                        payload = ieee_header['payload']
                         
 
 
                     elif ieee_header['type'] == "LLC":
                         output.llc_header(ieee_header['dsap'], ieee_header['ssap'], ieee_header['control'])
 
-                #IPv4
-                if eth_proto == 0x800:
-                    version, ttl, ip_proto, ip_src, ip_dest, header_length, ip_payload = ipv4_unpack(payload)
-                    output.ipv4_header(version, header_length, ttl, ip_src, ip_dest, ip_proto)
-                    identify_transport_layer(ip_proto, ip_payload)
-                    
-
-                #IPv6
-                elif eth_proto == 0x86dd:
-                    version, traffic, flow, payload_length, next_header, hop, ip_src, ip_dest, ip_payload = ipv6_unpack(payload)
-                    output.ipv6_header(version, traffic, flow, payload_length, next_header, hop, ip_src, ip_dest)
-                    identify_transport_layer(next_header, ip_payload)
-
-                #ARP
-                elif eth_proto == 0x806:
-                    hw_type, p_type, hw_len, p_len, op, sender_mac, sender_ip, target_mac, target_ip = arp_unpack(payload)
-                    output.arp_message(hw_type, p_type, hw_len, p_len, op, sender_mac, sender_ip, target_mac, target_ip)
+                if (eth_proto > 0x600):
+                    identify_ethertype(eth_proto, payload)
+                
 
 
 
