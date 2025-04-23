@@ -1,12 +1,5 @@
 import textwrap
 
-def format_multiline_data(prefix, string, size=80):
-    size -= len(prefix)
-    if isinstance(string, bytes):
-        string = ''.join(r'\x[:02x]'.format(byte) for byte in string)
-        if size % 2:
-            size -= 1
-    return '\n'.join([prefix + line for line in textwrap.wrap(string, size)])
 
 def wifi_header(header):
     print("\t802.11, WIFI FRAME:")
@@ -62,14 +55,10 @@ def arp_message(hw_type, p_type, hw_len, p_len, op, sender_mac, sender_ip, targe
 def icmpv6_header(icmp_type, code, checksum, data):
     print("\tICMPv6 Packet:")
     print(f"\t\tType: {icmp_type} Code: {code} Checksum: {checksum}")
-    print("\t\tData:")
-    print(format_multiline_data("\t\t\t", data))
 
 def icmpv4_packet(icmp_type, code, checksum, data):
     print("\tICMPv4 Packet:")
     print(f"\t\tType: {icmp_type} Code: {code} Checksum: {checksum}")
-    print("\t\tData:")
-    print(format_multiline_data("\t\t\t", data))
 
 def tcp_packet(src_port, dest_port, sequence_num, ack, flag_urg, flag_ack, flag_psh, flag_rst, flag_syn, flag_fin, data):
     print("\tTCP segment:")
@@ -77,14 +66,11 @@ def tcp_packet(src_port, dest_port, sequence_num, ack, flag_urg, flag_ack, flag_
     print(f"\t\tSequence: {sequence_num} Acknowledgement: {ack}")
     print("\t\tFlags:")
     print(f"\t\t\tURG: {flag_urg} ACK: {flag_ack} PSH: {flag_psh} RST: {flag_rst} SYN: {flag_syn} FIN: {flag_fin}")
-    print("\t\tData:")
-    print(format_multiline_data("\t\t\t", data))
 
 def udp_packet(src_port, dest_port, length, data):
     print("\tUDP Segment:")
     print(f"\t\tSource Port: {src_port} Destination Port: {dest_port} Length: {length}")
-    print(format_multiline_data("\t\t", data))
 
 def unknown_packet(data):
-    print("\tData: ")
-    print(format_multiline_data("\t\t", data))
+    print("\tUnknown Packet Data: ")
+    print("\t\t", data.hex())
