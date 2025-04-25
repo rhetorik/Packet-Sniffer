@@ -18,8 +18,8 @@ def main():
             data, addr = sock.recvfrom(65565)
             if sock == wifi_sock:
                 wifi_header = parser.wifi_unpack(data)
-                if wifi_header and wifi_header['ftype'] == 2:
-                    output.wifi_header(wifi_header)
+                #if wifi_header and wifi_header['ftype'] == 2:
+                output.wifi_header(wifi_header)
 
 
             #Ethernet Frame
