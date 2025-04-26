@@ -2,7 +2,7 @@ import textwrap
 
 
 def wifi_header(header):
-    print("\t802.11, WIFI FRAME:")
+    print("\n802.11, WIFI FRAME:")
     print(f"\tDuration: {header["duration"]} Frame Control Header:")
     print(f"\t\tVersion: {header["version"]} Frame Type: {header["ftype"]} Subtype: {header["subtype"]}")
     print("\t\tFlags:")

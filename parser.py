@@ -199,7 +199,7 @@ def identify_transport_layer(ip_proto, ip_payload):
         icmp_type, code, checksum, data = icmpv6_packet(ip_payload)
         output.icmpv6_header(icmp_type, code, checksum, data)
     else:
-        output.unkown_data(ip_payload)
+        output.unkown_packet(ip_payload)
 
 def identify_ethertype(eth_proto, data):
     #IPv4

@@ -4,17 +4,71 @@ import struct
 import select
 import output
 import parser
+import argparse
+
+arg_flags = argparse.ArgumentParser()
+
+arg_flags.add_argument('--a', action='store_true')
+arg_flags.add_argument('--e', action='store_true')
+arg_flags.add_argument('--w', action='store_true')
+arg_flags.add_argument('--o', type=str)
+
+eth_sock = None
+wifi_sock = None
+interfaces = [sys.stdin]
+output_file = sys.stdout
+
+
+args = arg_flags.parse_args()
+
+if args.a:
+    try:
+        eth_sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
+        eth_sock.bind(('enp0s3', 0))
+        wifi_sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
+        wifi_sock.bind(('wlan0', 0))
+        interfaces += [eth_sock, wifi_sock]
+        print("Sniffing on both Ethernet and Wireless Interfaces")
+    except Exception as e:
+        print("Error Binding To Interfaces")
+if args.e:
+    try:
+        eth_sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
+        eth_sock.bind(('enp0s3', 0))
+        interfaces += [eth_sock]
+        print("Sniffing on Ethernet Interface")
+    except Exception as e:
+        print("Error Binding To Ethernet Interface")
+if args.w:
+    try:
+        wifi_sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
+        wifi_sock.bind(('wlan0', 0))
+        interfaces += [wifi_sock]
+        print("Sniffing on Wireless Interface")
+    except Exception as e:
+        print("Error Binding To Wireless Interface")
+if args.o:
+    try:
+        output_file = open(args.o, 'w')
+        print("Packet Sniffer Log", file=output_file)
+    except Exception as e:
+        print("Error Opening Log File")
 
 
 def main():
-    eth_sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
-    eth_sock.bind(('enp0s3', 0))
-    wifi_sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
-    wifi_sock.bind(('wlan0', 0))
+    print("Initializing Packet Sniffer", file=output_file) 
     while True:
-        r, _, _, = select.select([wifi_sock, eth_sock], [], [])
+        r, _, _, = select.select(interfaces, [], [])
         for sock in r:
-            
+            if sock == sys.stdin:
+                data = sys.stdin.readline().strip()
+                if data == "exit":
+                   return
+                else:
+                    print("UNRECOGNIZED COMMAND: ", data)
+                    break
+                
+
             data, addr = sock.recvfrom(65565)
             if sock == wifi_sock:
                 wifi_header = parser.wifi_unpack(data)
