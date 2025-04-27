@@ -74,6 +74,40 @@ def udp_packet(src_port, dest_port, length, data):
 def unknown_packet(data):
     print("\tUnknown Packet Data: ")
     print("\t\t", data.hex())
+    
+def transport(transport_header):
+    if transport_header['type'] == 'tcp':
+        tcp_packet(transport_header['src_port'], transport_header['dest_port'], transport_header['sequence_num'], transport_header['ack'], transport_header['flag_urg'], transport_header['flag_ack'], transport_header['flag_psh'], transport_header['flag_rst'], transport_header['flag_syn'], transport_header['flag_fin'], transport_header['data'])
+    elif transport_header['type'] == 'udp':
+        udp_packet(transport_header['src_port'], transport_header['dest_port'], transport_header['length'], transport_header['data'])
+    elif transport_header['type'] == 'icmp':
+        icmpv4_packet(transport_header['icmp_type'], transport_header['code'], transport_header['checksum'], transport_header['data'])
+    elif transport_header['type'] == 'icmpv6':
+        icmpv6_header(transport_header['icmp_type'], transport_header['code'], transport_header['checksum'], transport_header['data'])
+        
+def ip(ip_header, transport_header):
+    if ip_header['type'] == 'ipv4':
+        ipv4_header(ip_header['version'], ip_header['header_length'], ip_header['ttl'], ip_header['ip_src'], ip_header['ip_dest'], ip_header['ip_proto'])
+        transport(transport_header)
+    elif ip_header['type'] == 'ipv6':
+        ipv6_header(ip_header['version'], ip_header['traffic'], ip_header['flow'], ip_header['payload_length'], ip_header['next_header'], ip_header['hop'], ip_header['ip_src'], ip_header['ip_dest'])
+        transport(transport_header)
+    elif ip_header['type'] == 'arp':
+        arp_message(ip_header['hw_type'], ip_header['p_type'], ip_header['hw_len'], ip_header['p_len'], ip_header['op'], ip_header['mac_src'], ip_header['ip_src'], ip_header['mac_dest'], ip_header['ip_dest'])
 
-def frame(ethernet_header, llc_header, transport_header, src_filter, dest_filter):
-    return
+def frame(ethernet_header, ieee_header, ip_header, transport_header, src_filter, dest_filter, trans_filter):
+    if llc_header and llc_header['type'] == 'LLC' and src_filter == 'any' and dest_filter == 'any' and trans_filter == 'any':
+        ethernet_frame(ethernet_header['proto'], ethernet_header['dest'], ethernet_header['src'])
+        llc_header(ieee_header['dsap'], ieee_header['ssap'], ieee_header['control'])
+    
+    if llc_header and llc_header['type'] == 'SNAP' and (src_filter == 'any' or src_filter == ip_header['ip_src']) and (dest_filter == 'any' or dest_filter == ip_header['ip_dest']) and (trans_filter == 'any' or trans_filter == transport_header['type']):
+        ethernet_frame(ethernet_header['proto'], ethernet_header['dest'], ethernet_header['src'])
+        llc_header(ieee_header['dsap'], ieee_header['ssap'], ieee_header['control'])
+        snap_header(ieee_header['oui'], ieee_header['pid'])
+        ip(ip_header, transport_header)
+    
+    if not llc_header and (src_filter == 'any' or src_filter == ip_header['ip_src']) and (dest_filter == 'any' or dest_filter == ip_header['ip_dest']) and (trans_filter == 'any' or trans_filter == transport_header['type']):
+        ethernet_frame(ethernet_header['proto'], ethernet_header['dest'], ethernet_header['src'])
+        ip(ip_header, transport_header)
+        
+            

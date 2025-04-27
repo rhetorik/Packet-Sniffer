@@ -14,6 +14,8 @@ arg_flags.add_argument('--w', action='store_true')
 arg_flags.add_argument('--o', type=str)
 arg_flags.add_argument('--src', type=str)
 arg_flags.add_argument('--dest', type=str)
+arg_flags.add_argument('--tcp', action='store_true')
+arg_flags.add_argument('--udp', action='store_true')
 
 
         
@@ -24,8 +26,9 @@ def main():
     wifi_sock = None
     interfaces = [sys.stdin]
     output_file = sys.stdout
-    src = 'any'
-    dest = 'any'
+    src_filter = 'any'
+    dest_filter = 'any'
+    trans_filter = 'any'
 
 
     args = arg_flags.parse_args()
@@ -68,16 +71,20 @@ def main():
             return 
     if args.src:
         try:
-            src = socket.inet_aton(args.src) 
+            src_filter = socket.inet_aton(args.src) 
         except socket.error:
             print("ERROR INVALID IP SOURCE")
             return
     if args.dest:
         try:
-            dest = socket.inet_aton(args.dest)
+            dest_filter = socket.inet_aton(args.dest)
         except socket.error:
             print("ERROR INVALID IP DESTINATION")
             return
+    if args.tcp:
+        trans_filter = 'tcp'
+    if args.udp:
+        trans_filter = 'udp'
 
 
 
@@ -103,30 +110,28 @@ def main():
 
             #Ethernet Frame
             if sock == eth_sock:
-                mac_dest, mac_src, eth_proto, payload = parser.eth_unpack(data)
-                eth_proto = int(eth_proto, 16)
-                output.ethernet_frame(eth_proto, mac_dest, mac_src)
+                eth_header = parser.eth_unpack(data)
+                eth_proto = int(eth_header['proto'], 16)
                 
                 #802.3 LLC + (Maybe SNAP) 
                 if eth_proto < 0x600:
                     ieee_header = parser.IEEE_802_unpack(payload)
                     if ieee_header['type'] == "SNAP":
-                        output.llc_header(ieee_header['dsap'], ieee_header['ssap'], ieee_header['control'])
-                        output.snap_header(ieee_header['oui'], ieee_header['pid'])
                         eth_proto = ieee_header['pid']
                         eth_proto = int(eth_proto, 16)
                         payload = ieee_header['payload']
                         ip_header = parser.identify_ethertype(eth_proto, payload)
-                        output.frame(ethernet_header, llc_header, transport_header, src_filter, dest_filter)
+                        output.frame(eth_header, ieee_header, ip_header, ip_header['transport_header'], src_filter, dest_filter, trans_filter)
 
                         
 
 
                     elif ieee_header['type'] == "LLC":
-                        output.llc_header(ieee_header['dsap'], ieee_header['ssap'], ieee_header['control'])
+                        output.frame(eth_header, ieee_header, None, None, src_filter, dest_filter, trans_filter)
 
-                if (eth_proto > 0x600):
-                    parser.identify_ethertype(eth_proto, payload)
+                elif (eth_proto >= 0x600):
+                    ip_header = parser.identify_ethertype(eth_proto, payload)
+                    output.frame(eth_header, None, ip_header, ip_header['transport_header'], src_filter, dest_filter, trans_filter)
                 
 
 
