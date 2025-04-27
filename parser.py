@@ -188,7 +188,8 @@ def tcp_segment(data):
 def identify_transport_layer(ip_proto, ip_payload):
     if ip_proto == 1:
         icmp_type, code, checksum, data = icmp_packet(ip_payload)
-        output.icmpv4_packet(icmp_type, code, checksum, data)
+        return {'type':'icmp', 'icmp_type':icmp_type, 'code':code, 'checksum':checksum, 'data':data}
+        
     elif ip_proto == 6:
         (src_port, dest_port, sequence_num, ack, flag_urg, flag_ack, flag_psh, flag_rst, flag_syn, flag_fin, data) = tcp_segment(ip_payload)
         output.tcp_packet(src_port, dest_port, sequence_num, ack, flag_urg, flag_ack, flag_psh, flag_rst, flag_syn, flag_fin, data)              

@@ -74,3 +74,6 @@ def udp_packet(src_port, dest_port, length, data):
 def unknown_packet(data):
     print("\tUnknown Packet Data: ")
     print("\t\t", data.hex())
+
+def frame(ethernet_header, llc_header, transport_header, src_filter, dest_filter):
+    return
