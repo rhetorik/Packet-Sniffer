@@ -71,13 +71,15 @@ def main():
             return 
     if args.src:
         try:
-            src_filter = socket.inet_aton(args.src) 
+            test = socket.inet_aton(args.src) 
+            src_filter = args.src
         except socket.error:
             print("ERROR INVALID IP SOURCE")
             return
     if args.dest:
         try:
-            dest_filter = socket.inet_aton(args.dest)
+            test = socket.inet_aton(args.dest)
+            dest_filter = args.dest
         except socket.error:
             print("ERROR INVALID IP DESTINATION")
             return
@@ -115,7 +117,7 @@ def main():
                 
                 #802.3 LLC + (Maybe SNAP) 
                 if eth_proto < 0x600:
-                    ieee_header = parser.IEEE_802_unpack(payload)
+                    ieee_header = parser.IEEE_802_unpack(eth_header['data'])
                     if ieee_header['type'] == "SNAP":
                         eth_proto = ieee_header['pid']
                         eth_proto = int(eth_proto, 16)
@@ -131,7 +133,8 @@ def main():
 
                 elif (eth_proto >= 0x600):
                     ip_header = parser.identify_ethertype(eth_proto, eth_header['data'])
-                    output.frame(eth_header, None, ip_header, ip_header['transport_header'], src_filter, dest_filter, trans_filter)
+                    if ip_header != None:
+                        output.frame(eth_header, None, ip_header, ip_header['transport_header'], src_filter, dest_filter, trans_filter)
                 
 
 

@@ -79,7 +79,7 @@ def transport(transport_header):
     if transport_header['type'] == 'tcp':
         tcp_packet(transport_header['src_port'], transport_header['dest_port'], transport_header['sequence_num'], transport_header['ack'], transport_header['flag_urg'], transport_header['flag_ack'], transport_header['flag_psh'], transport_header['flag_rst'], transport_header['flag_syn'], transport_header['flag_fin'], transport_header['data'])
     elif transport_header['type'] == 'udp':
-        udp_packet(transport_header['src_port'], transport_header['dest_port'], transport_header['length'], transport_header['data'])
+        udp_packet(transport_header['src_port'], transport_header['dest_port'], transport_header['size'], transport_header['data'])
     elif transport_header['type'] == 'icmp':
         icmpv4_packet(transport_header['icmp_type'], transport_header['code'], transport_header['checksum'], transport_header['data'])
     elif transport_header['type'] == 'icmpv6':

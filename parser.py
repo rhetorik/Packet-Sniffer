@@ -144,10 +144,10 @@ def arp_unpack(data):
         'hw_len': hw_len,
         'p_len': p_len,
         'op': op,
-        'sender_mac': sender_mac,
-        'sender_ip': sender_ip,
-        'target_mac': target_mac,
-        'target_ip': target_ip
+        'mac_src': sender_mac,
+        'ip_src': sender_ip,
+        'mac_dest': target_mac,
+        'ip_dest': target_ip
     }
 
 def ipv4_unpack(data):
@@ -200,12 +200,11 @@ def icmpv6_packet(data):
     return {'type':'icmpv6', 'icmp_type':icmp_type, 'code':code, 'checksum':checksum, 'data':data[4:]}
 
 def udp_segment(data):
-    src_port, dest_port, size = struct.unpack('! H H 2x H', data[:8])
+    src_port, dest_port, size = struct.unpack('! H H H', data[:6])
     return {'type':'udp', 'src_port':src_port, 'dest_port':dest_port, 'size':size, 'data':data[8:]}
 
 def tcp_segment(data):
     (src_port, dest_port, sequence_num, ack, flags) = struct.unpack('! H H I I H', data[:14])
-    print("HEADER: ", data[:20].hex())
     offset = (flags >> 12) * 4
     flag_urg = (flags & 32) >> 5
     flag_ack = (flags & 16) >> 4
@@ -256,4 +255,7 @@ def identify_ethertype(eth_proto, data):
 
     #ARP
     elif eth_proto == 0x806:
-        return arp_unpack(data)
+        ip_header = arp_unpack(data)
+        ip_header['transport_header'] = {'type':'None'}
+        return ip_header
+        
