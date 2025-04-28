@@ -130,7 +130,7 @@ def main():
                         output.frame(eth_header, ieee_header, None, None, src_filter, dest_filter, trans_filter)
 
                 elif (eth_proto >= 0x600):
-                    ip_header = parser.identify_ethertype(eth_proto, payload)
+                    ip_header = parser.identify_ethertype(eth_proto, eth_header['data'])
                     output.frame(eth_header, None, ip_header, ip_header['transport_header'], src_filter, dest_filter, trans_filter)
                 
 
