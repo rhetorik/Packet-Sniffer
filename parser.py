@@ -138,6 +138,7 @@ def arp_unpack(data):
     sender_ip = ".".join(map(str, sender_ip))
     target_ip = ".".join(map(str, target_ip)) 
     return {
+        'type': 'arp',
         'hw_type': hw_type,
         'p_type': p_type,
         'hw_len': hw_len,
@@ -158,6 +159,7 @@ def ipv4_unpack(data):
     ip_src = ".".join(map(str, ip_src))
     ip_dest = ".".join(map(str, ip_dest))
     return {
+        'type': 'ipv4',
         'version': version,
         'ttl': ttl,
         'ip_proto': ip_proto,
@@ -176,6 +178,7 @@ def ipv6_unpack(data):
     ip_src = ipv6_convert(ip_src)
     ip_dest = ipv6_convert(ip_dest)
     return {
+        'type': 'ipv6',
         'version': version,
         'traffic': traffic,
         'flow': flow,
@@ -190,15 +193,15 @@ def ipv6_unpack(data):
 
 def icmp_packet(data):
     icmp_type, code, checksum = struct.unpack('! B B H', data[:4])
-    return {'icmp_type':icmp_type, 'code':code, 'checksum':checksum, 'data':data[4:]}
+    return {'type': 'icmp', 'icmp_type':icmp_type, 'code':code, 'checksum':checksum, 'data':data[4:]}
 
 def icmpv6_packet(data):
     icmp_type, code, checksum = struct.unpack('! B B H', data[:4])
-    return {'icmp_type':icmp_type, 'code':code, 'checksum':checksum, 'data':data[4:]}
+    return {'type':'icmpv6', 'icmp_type':icmp_type, 'code':code, 'checksum':checksum, 'data':data[4:]}
 
 def udp_segment(data):
     src_port, dest_port, size = struct.unpack('! H H 2x H', data[:8])
-    return {'src_port':src_port, 'dest_port':dest_port, 'size':size, 'data':data[8:]}
+    return {'type':'udp', 'src_port':src_port, 'dest_port':dest_port, 'size':size, 'data':data[8:]}
 
 def tcp_segment(data):
     (src_port, dest_port, sequence_num, ack, flags) = struct.unpack('! H H I I H', data[:14])
@@ -211,6 +214,7 @@ def tcp_segment(data):
     flag_syn = (flags & 2) >> 1
     flag_fin = flags & 1
     return {
+        'type': 'tcp',
         'src_port': src_port,
         'dest_port': dest_port,
         'sequence_num': sequence_num,
@@ -226,94 +230,30 @@ def tcp_segment(data):
     
 def identify_transport_layer(ip_proto, ip_payload):
     if ip_proto == 1:
-        icmp_type, code, checksum, data = icmp_packet(ip_payload)
-        return {'type':'icmp', 'icmp_type':icmp_type, 'code':code, 'checksum':checksum, 'data':data}
-        
+        return icmp_packet(ip_payload)
     elif ip_proto == 6:
-        (src_port, dest_port, sequence_num, ack, flag_urg, flag_ack, flag_psh, flag_rst, flag_syn, flag_fin, data) = tcp_segment(ip_payload)
-        return {
-            'type': 'tcp',
-            'src_port': src_port,
-            'dest_port': dest_port,
-            'sequence_num': sequence_num,
-            'ack': ack,
-            'flag_urg': flag_urg,
-            'flag_ack': flag_ack,
-            'flag_psh': flag_psh,
-            'flag_rst': flag_rst,
-            'flag_syn': flag_syn,
-            'flag_fin': flag_fin,
-            'data': data
-        }            
+        return tcp_segment(ip_payload)           
     elif ip_proto == 17:
-        src_port, dest_port, length, data = udp_segment(ip_payload)
-        return {
-            'type': 'udp',
-            'src_port': src_port,
-            'dest_port': dest_port,
-            'length': length,
-            'data': data
-        }
+        return udp_segment(ip_payload)
     elif ip_proto == 58:
-        icmp_type, code, checksum, data = icmpv6_packet(ip_payload)
-        return {
-            'type': 'icmpv6',
-            'icmp_type': icmp_type,
-            'code': code,
-            'checksum': checksum,
-            'data': data
-        }
+        return icmpv6_packet(ip_payload)
     else:
         {'type': 'unkown', 'data':ip_payload}
 
 def identify_ethertype(eth_proto, data):
     #IPv4
     if eth_proto == 0x800:
-        version, ttl, ip_proto, ip_src, ip_dest, header_length, ip_payload = ipv4_unpack(data)
-        transport_header = identify_transport_layer(ip_proto, ip_payload)
-        return {
-            'type':'ipv4',
-            'version': version,
-            'ttl': ttl,
-            'ip_proto': ip_proto,
-            'ip_src': ip_src,
-            'ip_dest': ip_dest,
-            'header_length': header_length,
-            'ip_payload': ip_payload,
-            'transport_header': transport_header
-        }
-                    
-
+        ip_header = ipv4_unpack(data)
+        transport_header = identify_transport_layer(ip_header['ip_proto'], ip_header['data'])
+        ip_header['transport_header'] = transport_header
+        return ip_header
     #IPv6
     elif eth_proto == 0x86dd:
-        version, traffic, flow, payload_length, next_header, hop, ip_src, ip_dest, ip_payload = ipv6_unpack(data)
-        transport_header = identify_transport_layer(next_header, ip_payload)
-        return {
-            'type':'ipv6',
-            'version': version,
-            'traffic': traffic,
-            'flow': flow,
-            'payload_length': payload_length,
-            'next_header': next_header,
-            'hop': hop,
-            'ip_src': ip_src,
-            'ip_dest': ip_dest,
-            'ip_payload': ip_payload,
-            'transport_header': transport_header
-        }
+        ip_header = ipv6_unpack(data)
+        transport_header = identify_transport_layer(ip_header['next_header'], ip_header['data'])
+        ip_header['transport_header'] = transport_header
+        return ip_header
 
     #ARP
     elif eth_proto == 0x806:
-        hw_type, p_type, hw_len, p_len, op, sender_mac, sender_ip, target_mac, target_ip = arp_unpack(data)
-        return {
-            'type':'arp',
-            'hw_type': hw_type,
-            'p_type': p_type,
-            'hw_len': hw_len,
-            'p_len': p_len,
-            'op': op,
-            'mac_src': sender_mac,
-            'ip_src': sender_ip,
-            'mac_dest': target_mac,
-            'ip_dest': target_ip
-        }
+        return arp_unpack(data)
