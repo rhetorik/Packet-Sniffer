@@ -95,15 +95,24 @@ def main():
         r, _, _, = select.select(interfaces, [], [])
         for sock in r:
             if sock == sys.stdin:
-                data = sys.stdin.readline().strip()
-                if data == "exit":
-                   return
-                else:
-                    print("UNRECOGNIZED COMMAND: ", data)
+                try:
+                    data = sys.stdin.readline().strip()
+                    if data == "exit":
+                        return
+                    else:
+                        print("UNRECOGNIZED COMMAND: ", data)
+                        break
+                except Exception:
+                    print("ERROR READING FROM STDIN")
                     break
-                
 
-            data, addr = sock.recvfrom(65565)
+                
+            try:
+                data, addr = sock.recvfrom(65565)
+            except socket.error:
+                print("ERROR RECEIVING DATA FROM SOCKET")
+                break
+
             if sock == wifi_sock:
                 wifi_header = parser.wifi_unpack(data)
                 #if wifi_header and wifi_header['ftype'] == 2:
@@ -113,17 +122,20 @@ def main():
             #Ethernet Frame
             if sock == eth_sock:
                 eth_header = parser.eth_unpack(data)
+                if eth_header == None:
+                    continue
                 eth_proto = int(eth_header['proto'], 16)
                 
                 #802.3 LLC + (Maybe SNAP) 
                 if eth_proto < 0x600:
                     ieee_header = parser.IEEE_802_unpack(eth_header['data'])
-                    if ieee_header['type'] == "SNAP":
+                    if ieee_header and ieee_header['type'] == "SNAP":
                         eth_proto = ieee_header['pid']
                         eth_proto = int(eth_proto, 16)
                         payload = ieee_header['payload']
                         ip_header = parser.identify_ethertype(eth_proto, payload)
-                        output.frame(eth_header, ieee_header, ip_header, ip_header['transport_header'], src_filter, dest_filter, trans_filter)
+                        if ip_header:
+                            output.frame(eth_header, ieee_header, ip_header, ip_header['transport_header'], src_filter, dest_filter, trans_filter)
 
                         
 
@@ -133,7 +145,7 @@ def main():
 
                 elif (eth_proto >= 0x600):
                     ip_header = parser.identify_ethertype(eth_proto, eth_header['data'])
-                    if ip_header != None:
+                    if ip_header:
                         output.frame(eth_header, None, ip_header, ip_header['transport_header'], src_filter, dest_filter, trans_filter)
                 
 

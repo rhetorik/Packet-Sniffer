@@ -62,12 +62,17 @@ def tcp(src_mac, dest_mac, src_ip, dest_ip, src_port, dest_port):
     eth_header = struct.pack('! 6s 6s H', dest_mac, src_mac, eth_proto)
 
     packet = eth_header + ip_header + tcp_header
+    try:
+        sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW)
+        sock.bind((interface, 0))
+        sock.send(packet)
+        print(f"sent spoofed packet from {src_ip}:{src_port} to {dest_ip}:{dest_port}")
+        return
+    except socket.error:
+        print("ERROR SENDING TCP MESSAGE")
+        return
+        
 
-    sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW)
-    sock.bind((interface, 0))
-    sock.send(packet)
-
-    print(f"sent spoofed packet from {src_ip}:{src_port} to {dest_ip}:{dest_port}")
 
 def udp(src_mac, dest_mac, src_ip, dest_ip, src_port, dest_port):
     #IP header
@@ -104,10 +109,15 @@ def udp(src_mac, dest_mac, src_ip, dest_ip, src_port, dest_port):
 
     packet = eth_header + ip_header + udp_header
 
-    sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW)
-    sock.bind((interface, 0))
-    sock.send(packet)
-    print(f"sent spoofed udp packet from {src_ip}:{src_port} to {dest_ip}:{dest_port}")
+    try:
+        sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW)
+        sock.bind((interface, 0))
+        sock.send(packet)
+        print(f"sent spoofed udp packet from {src_ip}:{src_port} to {dest_ip}:{dest_port}")
+        return
+    except socket.error:
+        print("ERROR SENDING UDP MESSAGE")
+        return
 
 def main():
     src_mac = b'\x00\x11\x22\x33\x44\x55'

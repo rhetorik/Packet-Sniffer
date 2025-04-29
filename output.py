@@ -1,6 +1,3 @@
-import textwrap
-
-
 def wifi_header(header):
     print("\n802.11, WIFI FRAME:")
     print(f"\tDuration: {header["duration"]} Frame Control Header:")
