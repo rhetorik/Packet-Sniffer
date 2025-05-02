@@ -220,7 +220,7 @@ def udp_segment(data):
 #unpack tcp header
 def tcp_segment(data):
     try:
-        (src_port, dest_port, sequence_num, ack, flags) = struct.unpack('! H H I I H', data[:14])
+        src_port, dest_port, sequence_num, ack, flags = struct.unpack('! H H I I H', data[:14])
         offset = (flags >> 12) * 4
         flag_urg = (flags & 32) >> 5
         flag_ack = (flags & 16) >> 4

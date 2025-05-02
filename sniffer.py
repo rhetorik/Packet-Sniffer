@@ -34,7 +34,7 @@ def main():
     interfaces = [sys.stdin]
     output_file = sys.stdout
     
-    myFilter = filter()
+    myFilter = filter.filter()
 
 
     args = arg_flags.parse_args()

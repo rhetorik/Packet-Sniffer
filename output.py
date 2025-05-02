@@ -12,53 +12,53 @@ control_frame = {
 
 def wifi_header(header):
     print("\n802.11, WIFI FRAME:")
-    print(f"\tDuration: {header["duration"]} Frame Control Header:")
-    print(f"\t\tVersion: {header["version"]} Frame Type: {header["ftype"]} Subtype: {header["subtype"]}")
+    print(f"\tDuration: {header["duration"]} | Frame Control Header:")
+    print(f"\t\tVersion: {header["version"]} | Frame Type: {header["ftype"]} | Subtype: {header["subtype"]}")
     print("\t\tFlags:")
-    print(f"\t\t\tTo DS: {header["flags"]["to_ds"]} From DS: {header["flags"]["from_ds"]} More Frag: {header["flags"]["more_frag"]} Retry: {header["flags"]["retry"]}")
-    print(f"\t\t\tPower Management: {header["flags"]["power_mgmt"]} More Data: {header["flags"]["more_data"]} Protected Frame: {header["flags"]["protected_frame"]} +HTC/Order: {header["flags"]["htc_order"]}")
+    print(f"\t\t\tTo DS: {header["flags"]["to_ds"]} | From DS: {header["flags"]["from_ds"]} | More Frag: {header["flags"]["more_frag"]} | Retry: {header["flags"]["retry"]}")
+    print(f"\t\t\tPower Management: {header["flags"]["power_mgmt"]} | More Data: {header["flags"]["more_data"]} | Protected Frame: {header["flags"]["protected_frame"]} | +HTC/Order: {header["flags"]["htc_order"]}")
     if header["flags"]["to_ds"] == 0 and header["flags"]["from_ds"] == 0:
         if header["ftype"] == 1:
-            print(f"\t\t{control_frame[header["subtype"]]} Receiver Address: {header["addr_1"]} Transmitter Address: {header["addr_2"]}")
+            print(f"\t\t{control_frame[header["subtype"]]} | Receiver Address: {header["addr_1"]} | Transmitter Address: {header["addr_2"]}")
         else:
             if header["addr_1"] == "ff:ff:ff:ff:ff:ff":
                 header["addr_1"] = "Broadcast"
-            print(f"\t\tDestination: {header["addr_1"]} Source: {header["addr_2"]} BSSID: {header["addr_3"]}")
+            print(f"\t\tDestination: {header["addr_1"]} | Source: {header["addr_2"]} | BSSID: {header["addr_3"]}")
     elif header["flags"]["to_ds"] == 1 and header["flags"]["from_ds"] == 0:
-        print(f"\t\tBSSID: {header["addr_1"]} Source: {header["addr_2"]} Destination: {header["addr_3"]}")
+        print(f"\t\tBSSID: {header["addr_1"]} | Source: {header["addr_2"]} | Destination: {header["addr_3"]}")
     elif header["flags"]["to_ds"] == 0 and header["flags"]["from_ds"] == 1:
-        print(f"\t\tDestination: {header["addr_1"]} BSSID: {header["addr_2"]} Source: {header["addr_3"]}")
+        print(f"\t\tDestination: {header["addr_1"]} | BSSID: {header["addr_2"]} | Source: {header["addr_3"]}")
     else:
-        print(f"\t\tReceiver Address: {header["addr_1"]} Transmitter Address: {header["addr_2"]} Destination: {header["addr_3"]} Source: {header["addr_4"]}")
+        print(f"\t\tReceiver Address: {header["addr_1"]} | Transmitter Address: {header["addr_2"]} | Destination: {header["addr_3"]} | Source: {header["addr_4"]}")
 
     
 
 def ethernet_frame(eth_proto, mac_dest, mac_src): 
     print("\nEthernet Frame:")
-    print(f"\tDestination: {mac_dest} Source: {mac_src} Protocol: {eth_proto}")
+    print(f"\tDestination: {mac_dest} | Source: {mac_src} | Protocol: {eth_proto}")
 
 def snap_header(oui, pid):
     print('\tIEEE 802.3 LLC + SNAP HEADER:')
-    print(f'OUI: {oui} Protocol ID: {pid}')
+    print(f'OUI: {oui} | Protocol ID: {pid}')
 
 def llc_header(dsap, ssap, control):
     print('\tIEEE 802.3 LLC Header:')
-    print(f'DSAP: {dsap} SSAP: {ssap} Control: {control}')
+    print(f'DSAP: {dsap} | SSAP: {ssap} | Control: {control}')
 
 def ipv6_header(version, traffic, flow, payload_length, next_header, hop, ip_src, ip_dest):
     print("\tIPv6 PACKET:")
-    print(f"\t\tVersion: {version} Traffic Class: {traffic} Flow: {flow}")
-    print(f"\t\tPayload Length: {payload_length} Next Header: {next_header} Hop Limit: {hop}")
-    print(f"\t\tSOURCE: {ip_src} DEST: {ip_dest}")
+    print(f"\t\tVersion: {version} | Traffic Class: {traffic} | Flow: {flow}")
+    print(f"\t\tPayload Length: {payload_length} | Next Header: {next_header} | Hop Limit: {hop}")
+    print(f"\t\tSOURCE: {ip_src} | DEST: {ip_dest}")
 
 def ipv4_header(version, header_length, ttl, ip_src, ip_dest, ip_proto):
     print("\tIPv4 PACKET:")
-    print(f"\t\tVersion: {version} Header Length: {header_length} TTL: {ttl}")
-    print(f"\t\tSOURCE: {ip_src} DEST: {ip_dest} PROTOCOL: {ip_proto}")
+    print(f"\t\tVersion: {version} | Header Length: {header_length} | TTL: {ttl}")
+    print(f"\t\tSOURCE: {ip_src} | DEST: {ip_dest} | PROTOCOL: {ip_proto}")
 
 def arp_message(hw_type, p_type, hw_len, p_len, op, sender_mac, sender_ip, target_mac, target_ip):
     print("\tARP:")
-    print(f"\t\tHardware Type: {hw_type} Protocol Type: {p_type} Hardware Length: {hw_len} Protocol Length: {p_len}")
+    print(f"\t\tHardware Type: {hw_type} | Protocol Type: {p_type} | Hardware Length: {hw_len} | Protocol Length: {p_len}")
     if op == "1" or op == 1:
         print(f"\t\tRequest: who has IP:{target_ip} tell IP:{sender_ip}")
     elif op == "2" or op == 2:
@@ -68,22 +68,22 @@ def arp_message(hw_type, p_type, hw_len, p_len, op, sender_mac, sender_ip, targe
 
 def icmpv6_header(icmp_type, code, checksum, data):
     print("\tICMPv6 Packet:")
-    print(f"\t\tType: {icmp_type} Code: {code} Checksum: {checksum}")
+    print(f"\t\tType: {icmp_type} | Code: {code} | Checksum: {checksum}")
 
 def icmpv4_packet(icmp_type, code, checksum, data):
     print("\tICMPv4 Packet:")
-    print(f"\t\tType: {icmp_type} Code: {code} Checksum: {checksum}")
+    print(f"\t\tType: {icmp_type} | Code: {code} | Checksum: {checksum}")
 
 def tcp_packet(src_port, dest_port, sequence_num, ack, flag_urg, flag_ack, flag_psh, flag_rst, flag_syn, flag_fin, data):
     print("\tTCP segment:")
-    print(f"\t\tSource Port: {src_port} Destination Port: {dest_port}")
-    print(f"\t\tSequence: {sequence_num} Acknowledgement: {ack}")
+    print(f"\t\tSource Port: {src_port} | Destination Port: {dest_port}")
+    print(f"\t\tSequence: {sequence_num} | Acknowledgement: {ack}")
     print("\t\tFlags:")
-    print(f"\t\t\tURG: {flag_urg} ACK: {flag_ack} PSH: {flag_psh} RST: {flag_rst} SYN: {flag_syn} FIN: {flag_fin}")
+    print(f"\t\t\tURG: {flag_urg} | ACK: {flag_ack} | PSH: {flag_psh} | RST: {flag_rst} | SYN: {flag_syn} | FIN: {flag_fin}")
 
 def udp_packet(src_port, dest_port, length, data):
     print("\tUDP Segment:")
-    print(f"\t\tSource Port: {src_port} Destination Port: {dest_port} Length: {length}")
+    print(f"\t\tSource Port: {src_port} | Destination Port: {dest_port} | Length: {length}")
 
 def unknown_packet(data):
     print("\tUnknown Packet Data: ")
