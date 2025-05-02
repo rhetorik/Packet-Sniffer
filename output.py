@@ -109,18 +109,18 @@ def ip(ip_header, transport_header):
     elif ip_header['type'] == 'arp':
         arp_message(ip_header['hw_type'], ip_header['p_type'], ip_header['hw_len'], ip_header['p_len'], ip_header['op'], ip_header['mac_src'], ip_header['ip_src'], ip_header['mac_dest'], ip_header['ip_dest'])
 
-def frame(ethernet_header, ieee_header, ip_header, transport_header, src_filter, dest_filter, trans_filter):
-    if ieee_header and ieee_header['type'] == 'LLC' and src_filter == 'any' and dest_filter == 'any' and trans_filter == 'any':
+def frame(ethernet_header, ieee_header, ip_header, transport_header):
+    if ieee_header and ieee_header['type'] == 'LLC':
         ethernet_frame(ethernet_header['proto'], ethernet_header['dest'], ethernet_header['src'])
         llc_header(ieee_header['dsap'], ieee_header['ssap'], ieee_header['control'])
     
-    if ieee_header and ieee_header['type'] == 'SNAP' and (src_filter == 'any' or src_filter == ip_header['ip_src']) and (dest_filter == 'any' or dest_filter == ip_header['ip_dest']) and (trans_filter == 'any' or trans_filter == transport_header['type']):
+    if ieee_header and ieee_header['type'] == 'SNAP':
         ethernet_frame(ethernet_header['proto'], ethernet_header['dest'], ethernet_header['src'])
         llc_header(ieee_header['dsap'], ieee_header['ssap'], ieee_header['control'])
         snap_header(ieee_header['oui'], ieee_header['pid'])
         ip(ip_header, transport_header)
     
-    if not ieee_header and (src_filter == 'any' or src_filter == ip_header['ip_src']) and (dest_filter == 'any' or dest_filter == ip_header['ip_dest']) and (trans_filter == 'any' or trans_filter == transport_header['type']):
+    if not ieee_header:
         ethernet_frame(ethernet_header['proto'], ethernet_header['dest'], ethernet_header['src'])
         ip(ip_header, transport_header)
         

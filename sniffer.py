@@ -1,10 +1,10 @@
 import sys
 import socket
-import struct
 import select
 import output
 import parser
 import argparse
+import filter
 
 arg_flags = argparse.ArgumentParser()
 
@@ -12,10 +12,17 @@ arg_flags.add_argument('--a', action='store_true')
 arg_flags.add_argument('--e', action='store_true')
 arg_flags.add_argument('--w', action='store_true')
 arg_flags.add_argument('--o', type=str)
-arg_flags.add_argument('--src', type=str)
-arg_flags.add_argument('--dest', type=str)
+arg_flags.add_argument('--ip_src', type=str)
+arg_flags.add_argument('--ip_dest', type=str)
+arg_flags.add_argument('--mac_src', type=str)
+arg_flags.add_argument('--mac_dest', type=str)
 arg_flags.add_argument('--tcp', action='store_true')
 arg_flags.add_argument('--udp', action='store_true')
+arg_flags.add_argument('--icmp', action='store_true')
+arg_flags.add_argument('--icmpv6', action='store_true')
+arg_flags.add_argument('--ipv4', action='store_true')
+arg_flags.add_argument('--ipv6', action='store_true')
+arg_flags.add_argument('--arp', action='store_true')
 
 
         
@@ -26,9 +33,8 @@ def main():
     wifi_sock = None
     interfaces = [sys.stdin]
     output_file = sys.stdout
-    src_filter = 'any'
-    dest_filter = 'any'
-    trans_filter = 'any'
+    
+    myFilter = filter()
 
 
     args = arg_flags.parse_args()
@@ -69,25 +75,52 @@ def main():
         except Exception as e:
             print("Error Opening Log File")
             return 
-    if args.src:
+    if args.ip_src:
         try:
-            test = socket.inet_aton(args.src) 
-            src_filter = args.src
+            test = socket.inet_aton(args.ip_src) 
+            myFilter.ip_src = args.ip_src
         except socket.error:
             print("ERROR INVALID IP SOURCE")
             return
-    if args.dest:
+    if args.ip_dest:
         try:
-            test = socket.inet_aton(args.dest)
-            dest_filter = args.dest
+            test = socket.inet_aton(args.ip_dest)
+            myFilter.ip_dest = args.ip_dest
         except socket.error:
             print("ERROR INVALID IP DESTINATION")
             return
+    if args.mac_src:
+        myFilter.mac_src = args.mac_src
+    if args.mac_dest:
+        myFilter.mac_dest = args.mac_dest
     if args.tcp:
-        trans_filter = 'tcp'
+        if myFilter.transport_proto[0] == "any":
+            myFilter.transport_proto.pop(0)
+        myFilter.transport_proto.append("tcp")
     if args.udp:
-        trans_filter = 'udp'
-
+        if myFilter.transport_proto[0] == "any":
+            myFilter.transport_proto.pop(0)
+        myFilter.transport_proto.append("udp")
+    if args.icmp:
+        if myFilter.transport_proto[0] == "any":
+            myFilter.transport_proto.pop(0)
+        myFilter.transport_proto.append("icmp")
+    if args.icmpv6:
+        if myFilter.transport_proto[0] == "any":
+            myFilter.transport_proto.pop(0)
+        myFilter.transport_proto.append("icmpv6")
+    if args.ipv4:
+        if myFilter.network_proto[0] == "any":
+            myFilter.network_proto.pop(0)
+        myFilter.network_proto.append("ipv4")
+    if args.ipv6:
+        if myFilter.network_proto[0] == "any":
+            myFilter.network_proto.pop(0)
+        myFilter.network_proto.append("ipv6")
+    if args.arp:
+        if myFilter.network_proto[0] == "any":
+            myFilter.network_proto.pop(0)
+        myFilter.network_proto.append("arp")
 
 
     print("Initializing Packet Sniffer", file=output_file) 
@@ -134,18 +167,21 @@ def main():
                         payload = ieee_header['payload']
                         ip_header = parser.identify_ethertype(eth_proto, payload)
                         if ip_header:
-                            output.frame(eth_header, ieee_header, ip_header, ip_header['transport_header'], src_filter, dest_filter, trans_filter)
+                            if myFilter.verify(eth_header, ip_header, ip_header["transport_header"]):
+                                output.frame(eth_header, ieee_header, ip_header, ip_header['transport_header'])
 
                         
 
 
                     elif ieee_header['type'] == "LLC":
-                        output.frame(eth_header, ieee_header, None, None, src_filter, dest_filter, trans_filter)
+                        if myFilter.verify(eth_header, None, None):
+                            output.frame(eth_header, ieee_header, None, None)
 
                 elif (eth_proto >= 0x600):
                     ip_header = parser.identify_ethertype(eth_proto, eth_header['data'])
                     if ip_header:
-                        output.frame(eth_header, None, ip_header, ip_header['transport_header'], src_filter, dest_filter, trans_filter)
+                        if myFilter.verify(eth_header, ip_header, ip_header["transport_header"]):
+                            output.frame(eth_header, None, ip_header, ip_header['transport_header'])
                 
 
 
