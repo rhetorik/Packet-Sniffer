@@ -115,7 +115,6 @@ def main():
 
             if sock == wifi_sock:
                 wifi_header = parser.wifi_unpack(data)
-                #if wifi_header and wifi_header['ftype'] == 2:
                 output.wifi_header(wifi_header)
 
 

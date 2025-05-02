@@ -26,11 +26,13 @@ def frame_control_flags(flags):
 
 #unpack wifi frame
 def wifi_unpack(data):
+    print("LENGTH OF ENTIRE WIFI FRAME: ", len(data))
     radiotap_version = data[0]
     if radiotap_version != 0:
         print("NO RADIOTAP HEADER THIS MIGHT BE ETHERNET")
         return
-    radiotap_length = struct.unpack("<2x H", data[:4])[0]
+    radiotap_length = struct.unpack_from("H", data, 2)[0]
+    print("RADIOTAP LENGTH: ", radiotap_length)
     data = data[radiotap_length:]
 
     frame_control, duration = struct.unpack("<HH", data[:4])
@@ -38,12 +40,20 @@ def wifi_unpack(data):
     ftype = (frame_control >> 2) & 0b11
     subtype = (frame_control >> 4) & 0b1111
     flags = frame_control_flags(frame_control >> 8)
-    addr_1 = ":".join(map('{:02x}'.format, data[4:10])).upper(),
-    addr_2 = ":".join(map('{:02x}'.format, data[10:16])).upper(),
-    addr_3 = ":".join(map('{:02x}'.format, data[16:22])).upper(),
+    addr_1 = ":".join(map('{:02x}'.format, data[4:10].upper()))
+    addr_2 = ":".join(map('{:02x}'.format, data[10:16].upper()))
+    if ftype == 1:
+        return {"frame_control":frame_control,
+            "duration": duration,
+            "version": version,
+            "ftype": ftype,
+            "subtype": subtype,
+            "flags": flags,
+            "addr_1": addr_1,
+            "addr_2": addr_2}
+    addr_3 = ":".join(map('{:02x}'.format, data[16:22].upper()))
     addr_4 = None
     qos = None
-
     header_length = 24
     start = 24
     #ADDR 4 present
@@ -60,8 +70,7 @@ def wifi_unpack(data):
     if flags["htc_order"]:
         header_length += 4
         start += 4
-    if ftype != 2:
-        return {"frame_control":frame_control,
+    return {"frame_control":frame_control,
             "duration": duration,
             "version": version,
             "ftype": ftype,
@@ -72,40 +81,8 @@ def wifi_unpack(data):
             "addr_3": addr_3,
             "addr_4": addr_4,
             "qos": qos,
-            "payload":data[start:]}
-    
-    llc = IEEE_802_unpack(data[header_length:])
-    if llc['type'] == "LLC":
-        output.llc_header(llc['dsap'], llc['ssap'], llc['control'])
-        return {"frame_control":frame_control,
-            "duration": duration,
-            "version": version,
-            "ftype": ftype,
-            "subtype": subtype,
-            "flags": flags,
-            "addr_1": addr_1,
-            "addr_2": addr_2,
-            "addr_3": addr_3,
-            "addr_4": addr_4,
-            "qos": qos,
-            "payload":llc['payload']}
-    elif llc['type'] == "SNAP":
-        eth_proto = llc['pid']
-        eth_proto = int(eth_proto, 16)
-        print("WIFI ETHERTYPE: ", eth_proto)
-        identify_ethertype(eth_proto, llc['payload'])
-        return {"frame_control":frame_control,
-            "duration": duration,
-            "version": version,
-            "ftype": ftype,
-            "subtype": subtype,
-            "flags": flags,
-            "addr_1": addr_1,
-            "addr_2": addr_2,
-            "addr_3": addr_3,
-            "addr_4": addr_4,
-            "qos": qos,
-            "payload":llc['payload']}
+            "payload":data[start:],
+            "header_length": header_length}
     
 
 

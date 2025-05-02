@@ -1,3 +1,15 @@
+control_frame = {
+            7: "Control Wrapper",
+            8: "Block ACK REQ",
+            9: "Block ACK",
+            10: "PS-POLL",
+            11: "Request To Send",
+            12: "Clear To Send",
+            13: "ACK",
+            14: "CF-END",
+            15: "CF-END + CF-ACK"
+        }
+
 def wifi_header(header):
     print("\n802.11, WIFI FRAME:")
     print(f"\tDuration: {header["duration"]} Frame Control Header:")
@@ -6,7 +18,12 @@ def wifi_header(header):
     print(f"\t\t\tTo DS: {header["flags"]["to_ds"]} From DS: {header["flags"]["from_ds"]} More Frag: {header["flags"]["more_frag"]} Retry: {header["flags"]["retry"]}")
     print(f"\t\t\tPower Management: {header["flags"]["power_mgmt"]} More Data: {header["flags"]["more_data"]} Protected Frame: {header["flags"]["protected_frame"]} +HTC/Order: {header["flags"]["htc_order"]}")
     if header["flags"]["to_ds"] == 0 and header["flags"]["from_ds"] == 0:
-        print(f"\t\tDestination: {header["addr_1"]} Source: {header["addr_2"]} BSSID: {header["addr_3"]}")
+        if header["ftype"] == 1:
+            print(f"\t\t{control_frame[header["subtype"]]} Receiver Address: {header["addr_1"]} Transmitter Address: {header["addr_2"]}")
+        else:
+            if header["addr_1"] == "ff:ff:ff:ff:ff:ff":
+                header["addr_1"] = "Broadcast"
+            print(f"\t\tDestination: {header["addr_1"]} Source: {header["addr_2"]} BSSID: {header["addr_3"]}")
     elif header["flags"]["to_ds"] == 1 and header["flags"]["from_ds"] == 0:
         print(f"\t\tBSSID: {header["addr_1"]} Source: {header["addr_2"]} Destination: {header["addr_3"]}")
     elif header["flags"]["to_ds"] == 0 and header["flags"]["from_ds"] == 1:
