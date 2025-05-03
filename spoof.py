@@ -7,9 +7,11 @@ arg_flags = argparse.ArgumentParser()
 
 arg_flags.add_argument('--tcp', action='store_true')
 arg_flags.add_argument('--udp', action='store_true')
-arg_flags.add_argument('--src', type=str)
 arg_flags.add_argument('--destip', type=str)
 arg_flags.add_argument('--destmac', type=str)
+arg_flags.add_argument('--srcip' , type=str)
+arg_flags.add_argument('--srcmac', type=str)
+
 
 interface = 'enp0s3'
 
@@ -130,13 +132,16 @@ def main():
 
     args = arg_flags.parse_args()
 
-    if args.src:
+    if args.srcip:
         try:
-            test = socket.inet_aton(args.src)
-            src_ip = args.src
+            test = socket.inet_aton(args.srcip)
+            src_ip = args.srcip
         except socket.error:
             print("INVAILD SOURCE IP FORMAT")
             return
+    if args.srcmac:
+        test = args.srcmac.replace(":", "")
+        src_mac = bytes.fromhex(test)
     if args.destip:
         try:
             test = socket.inet_aton(args.destip)
@@ -145,7 +150,7 @@ def main():
             print("INVALID DESTINATION IP FORMAT")
             return
     if args.destmac:
-        test = args.destmac.replace(":", " ")
+        test = args.destmac.replace(":", "")
         dest_mac = bytes.fromhex(test)
     if args.tcp:
         tcp(src_mac, dest_mac, src_ip, dest_ip, src_port, dest_port)
