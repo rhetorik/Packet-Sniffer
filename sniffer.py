@@ -39,6 +39,13 @@ def main():
 
     args = arg_flags.parse_args()
 
+    if args.o:
+        try:
+            output_file = open(args.o, 'w')
+            print("Packet Sniffer Log", file=output_file)
+        except Exception as e:
+            print("Error Opening Log File")
+            return
     if args.a:
         try:
             eth_sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
@@ -46,7 +53,7 @@ def main():
             wifi_sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
             wifi_sock.bind(('wlan0', 0))
             interfaces += [eth_sock, wifi_sock]
-            print("Sniffing on both Ethernet and Wireless Interfaces")
+            print("Sniffing on both Ethernet and Wireless Interfaces", file=output_file)
         except Exception as e:
             print("Error Binding To Interfaces")
             return
@@ -55,7 +62,7 @@ def main():
             eth_sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
             eth_sock.bind(('enp0s3', 0))
             interfaces += [eth_sock]
-            print("Sniffing on Ethernet Interface")
+            print("Sniffing on Ethernet Interface", file=output_file)
         except Exception as e:
             print("Error Binding To Ethernet Interface")
             return
@@ -64,21 +71,15 @@ def main():
             wifi_sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
             wifi_sock.bind(('wlan0', 0))
             interfaces += [wifi_sock]
-            print("Sniffing on Wireless Interface")
+            print("Sniffing on Wireless Interface", file=output_file)
         except Exception as e:
             print("Error Binding To Wireless Interface")
             return
-    if args.o:
-        try:
-            output_file = open(args.o, 'w')
-            print("Packet Sniffer Log", file=output_file)
-        except Exception as e:
-            print("Error Opening Log File")
-            return 
     if args.ip_src:
         try:
             test = socket.inet_aton(args.ip_src) 
             myFilter.ip_src = args.ip_src
+            print(f"Filtering packets from {args.ip_src}", file=output_file)
         except socket.error:
             print("ERROR INVALID IP SOURCE")
             return
@@ -86,41 +87,51 @@ def main():
         try:
             test = socket.inet_aton(args.ip_dest)
             myFilter.ip_dest = args.ip_dest
+            print(f"Filtering packets going to {args.ip_dest}", file=output_file)
         except socket.error:
             print("ERROR INVALID IP DESTINATION")
             return
     if args.mac_src:
         myFilter.mac_src = args.mac_src
+        print(f"Filtering packets from {args.mac_src}", file=output_file)
     if args.mac_dest:
         myFilter.mac_dest = args.mac_dest
+        print(f"Filtering packets going to {args.mac_dest}", file=output_file)
     if args.tcp:
         if myFilter.transport_proto[0] == "any":
             myFilter.transport_proto.pop(0)
         myFilter.transport_proto.append("tcp")
+        print("Filtering for tcp packets", file=output_file)
     if args.udp:
         if myFilter.transport_proto[0] == "any":
             myFilter.transport_proto.pop(0)
         myFilter.transport_proto.append("udp")
+        print("Filtering for udp packets", file=output_file)
     if args.icmp:
         if myFilter.transport_proto[0] == "any":
             myFilter.transport_proto.pop(0)
         myFilter.transport_proto.append("icmp")
+        print("Filtering for icmp packets", file=output_file)
     if args.icmpv6:
         if myFilter.transport_proto[0] == "any":
             myFilter.transport_proto.pop(0)
         myFilter.transport_proto.append("icmpv6")
+        print("Filtering for icmpv6 packets", file=output_file)
     if args.ipv4:
         if myFilter.network_proto[0] == "any":
             myFilter.network_proto.pop(0)
         myFilter.network_proto.append("ipv4")
+        print("Filtering for ipv4 packets", file=output_file)
     if args.ipv6:
         if myFilter.network_proto[0] == "any":
             myFilter.network_proto.pop(0)
         myFilter.network_proto.append("ipv6")
+        print("Filtering for ipv6 packets", file=output_file)
     if args.arp:
         if myFilter.network_proto[0] == "any":
             myFilter.network_proto.pop(0)
         myFilter.network_proto.append("arp")
+        print("Filtering for arp packets", file=output_file)
 
 
     print("Initializing Packet Sniffer", file=output_file) 
@@ -131,6 +142,7 @@ def main():
                 try:
                     data = sys.stdin.readline().strip()
                     if data == "exit":
+                        output_file.close()
                         return
                     else:
                         print("UNRECOGNIZED COMMAND: ", data)
@@ -148,7 +160,8 @@ def main():
 
             if sock == wifi_sock:
                 wifi_header = parser.wifi_unpack(data)
-                output.wifi_header(wifi_header)
+                if wifi_header:
+                    output.wifi_header(wifi_header, output_file)
 
 
             #Ethernet Frame
@@ -168,20 +181,20 @@ def main():
                         ip_header = parser.identify_ethertype(eth_proto, payload)
                         if ip_header:
                             if myFilter.verify(eth_header, ip_header, ip_header["transport_header"]):
-                                output.frame(eth_header, ieee_header, ip_header, ip_header['transport_header'])
+                                output.frame(eth_header, ieee_header, ip_header, ip_header['transport_header'], output_file)
 
                         
 
 
                     elif ieee_header['type'] == "LLC":
                         if myFilter.verify(eth_header, None, None):
-                            output.frame(eth_header, ieee_header, None, None)
+                            output.frame(eth_header, ieee_header, None, None, output_file)
 
                 elif (eth_proto >= 0x600):
                     ip_header = parser.identify_ethertype(eth_proto, eth_header['data'])
                     if ip_header:
                         if myFilter.verify(eth_header, ip_header, ip_header["transport_header"]):
-                            output.frame(eth_header, None, ip_header, ip_header['transport_header'])
+                            output.frame(eth_header, None, ip_header, ip_header['transport_header'], output_file)
                 
 
 
@@ -189,4 +202,5 @@ def main():
 
          
 main()
+
 

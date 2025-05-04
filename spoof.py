@@ -7,15 +7,30 @@ arg_flags = argparse.ArgumentParser()
 
 arg_flags.add_argument('--tcp', action='store_true')
 arg_flags.add_argument('--udp', action='store_true')
+arg_flags.add_argument('--ack', action='store_true')
+arg_flags.add_argument('--psh', action='store_true')
+arg_flags.add_argument('--urg', action='store_true')
+arg_flags.add_argument('--rst', action='store_true')
+arg_flags.add_argument('--syn', action='store_true')
+arg_flags.add_argument('--fin', action='store_true')
 arg_flags.add_argument('--destip', type=str)
 arg_flags.add_argument('--destmac', type=str)
 arg_flags.add_argument('--srcip' , type=str)
 arg_flags.add_argument('--srcmac', type=str)
 
+tcp_types = {
+        "urg":0x20,
+        "ack":0x10,
+        "psh":0x08,
+        "rst":0x04,
+        "syn":0x02,
+        "fin":0x01
+        }
+
 
 interface = 'enp0s3'
 
-
+#checksum function from scapy
 def checksum(data):
     if len(data) % 2:
         data += b'\0'
@@ -24,7 +39,7 @@ def checksum(data):
     res += res >> 16
     return ~res & 0xffff
 
-def tcp(src_mac, dest_mac, src_ip, dest_ip, src_port, dest_port):
+def tcp(tcp_flags, src_mac, dest_mac, src_ip, dest_ip, src_port, dest_port):
     #IP header
     ip_ihl = 5
     ip_ver = 4
@@ -47,17 +62,15 @@ def tcp(src_mac, dest_mac, src_ip, dest_ip, src_port, dest_port):
 
     #TCP header
     tcp_offset_res = (5 << 4) + 0
-    tcp_flags = 0x02
+    #tcp_flags = 0x02
     tcp_win = 65535
     tcp_check = 0
     tcp_urg_ptr = 0
     tcp_seq_num = 123456
-    tcp_header = struct.pack('! H H L L B B H H H', src_port, dest_port, tcp_seq_num, 0, tcp_offset_res, tcp_flags, tcp_win,
-                            tcp_check, tcp_urg_ptr)
+    tcp_header = struct.pack('! H H L L B B H H H', src_port, dest_port, tcp_seq_num, 0, tcp_offset_res, tcp_flags, tcp_win, tcp_check, tcp_urg_ptr)
     pseudo_header = struct.pack('! 4s 4s B B H', ip_src_addr, ip_dest_addr, 0, socket.IPPROTO_TCP, len(tcp_header))
     tcp_check = checksum(pseudo_header + tcp_header)
-    tcp_header = struct.pack('! H H L L B B H H H', src_port, dest_port, tcp_seq_num, 0, tcp_offset_res, tcp_flags, tcp_win,
-                            tcp_check, tcp_urg_ptr)
+    tcp_header = struct.pack('! H H L L B B H H H', src_port, dest_port, tcp_seq_num, 0, tcp_offset_res, tcp_flags, tcp_win, tcp_check, tcp_urg_ptr)
 
     #Ethernet header
     eth_proto = 0x800
@@ -102,7 +115,8 @@ def udp(src_mac, dest_mac, src_ip, dest_ip, src_port, dest_port):
     udp_length = 8
     udp_check = 0
     udp_header = struct.pack('! H H H H', src_port, dest_port, udp_length, udp_check)
-    udp_check = checksum(udp_header)
+    pseudo_header = struct.pack('! 4s 4s B B H', ip_src_addr, ip_dest_addr, 0, ip_proto, udp_length)
+    udp_check = checksum(pseudo_header + udp_header)
     udp_header = struct.pack('! H H H H', src_port, dest_port, udp_length, udp_check)
 
     #Ethernet header
@@ -125,7 +139,7 @@ def main():
     src_mac = b'\x00\x11\x22\x33\x44\x55'
     dest_mac = b'\x3C\x7C\x3F\xEE\xC6\xED'
     src_ip = '192.168.1.1'
-    dest_ip = '192.168.1.195'
+    dest_ip = '192.168.1.190'
     src_port = 8080
     dest_port = 8080
     
@@ -153,11 +167,28 @@ def main():
         test = args.destmac.replace(":", "")
         dest_mac = bytes.fromhex(test)
     if args.tcp:
-        tcp(src_mac, dest_mac, src_ip, dest_ip, src_port, dest_port)
+        tcp_type = 0x00
+        if args.urg:
+            tcp_type += tcp_types["urg"]
+        if args.ack:
+            tcp_type += tcp_types["ack"]
+        if args.psh:
+            tcp_type += tcp_types["psh"]
+        if args.rst:
+            tcp_type += tcp_types["rst"]
+        if args.syn:
+            tcp_type += tcp_types["syn"]
+        if args.fin:
+            tcp_type += tcp_types["fin"]
+
+
+        tcp(tcp_type, src_mac, dest_mac, src_ip, dest_ip, src_port, dest_port)
         return
     if args.udp:
         udp(src_mac, dest_mac, src_ip, dest_ip, src_port, dest_port)
         return
+    print("provide --tcp or --udp to send packet")
+    return
 
 main()
 

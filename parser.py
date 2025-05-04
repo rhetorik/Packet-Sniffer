@@ -6,15 +6,15 @@ import output
 
 #convert ipv6 byte format to string
 def ipv6_convert(addr):
-    hex_converted = []
-    for i in range(0, len(addr), 2):
-        hextet = (format(addr[i], '02x') + format(addr[i+1], '02x')).upper()
-        hex_converted.append(hextet)
-    return ":".join(hex_converted)
+    try:
+        test = socket.inet_ntop(socket.AF_INET6, addr)
+        return test
+    except socket.error:
+        print("ERROR CONVERTING IPv6 to string")
 
 #unpack each flag value in frame control
 def frame_control_flags(flags):
-    return {"to_ds": ((flags >> 0) & 1),
+    return {"to_ds": (flags & 1),
             "from_ds": ((flags >> 1) & 1),
             "more_frag": ((flags >> 2) & 1),
             "retry": ((flags >> 3) & 1),
@@ -26,13 +26,11 @@ def frame_control_flags(flags):
 
 #unpack wifi frame
 def wifi_unpack(data):
-    print("LENGTH OF ENTIRE WIFI FRAME: ", len(data))
     radiotap_version = data[0]
     if radiotap_version != 0:
         print("NO RADIOTAP HEADER THIS MIGHT BE ETHERNET")
         return
     radiotap_length = struct.unpack_from("H", data, 2)[0]
-    print("RADIOTAP LENGTH: ", radiotap_length)
     data = data[radiotap_length:]
 
     frame_control, duration = struct.unpack("<HH", data[:4])
@@ -55,21 +53,17 @@ def wifi_unpack(data):
     addr_4 = None
     qos = None
     header_length = 24
-    start = 24
     #ADDR 4 present
     if flags['to_ds'] and flags['from_ds']:
+        addr_4 = ":".join(map('{:02x}'.format, data[header_length:header_length+6])).upper()
         header_length += 6
-        addr_4 = ":".join(map('{:02x}'.format, data[start:start+6])).upper()
-        start += 6
     #QoS Control Field present
     if ftype == 2 and subtype == 0b1000:
+        qos = struct.unpack("<H", data[header_length:header_length+2])[0]
         header_length += 2
-        qos = struct.unpack("<H", data[start:start+2])[0]
-        start += 2
     #HTC Control present
     if flags["htc_order"]:
         header_length += 4
-        start += 4
     return {"frame_control":frame_control,
             "duration": duration,
             "version": version,
@@ -81,7 +75,7 @@ def wifi_unpack(data):
             "addr_3": addr_3,
             "addr_4": addr_4,
             "qos": qos,
-            "payload":data[start:],
+            "payload":data[header_length:],
             "header_length": header_length}
     
 
@@ -91,7 +85,7 @@ def wifi_unpack(data):
 #unpack ethernet frame
 def eth_unpack(data):
     try:
-        dest, src, proto, = struct.unpack('!6s6sH', data[:14])
+        dest, src, proto, = struct.unpack('! 6s 6s H', data[:14])
         dest = ":".join(map('{:02x}'.format, dest)).upper() 
         src = ":".join(map('{:02x}'.format, src)).upper()
         proto = hex(proto)
@@ -99,6 +93,7 @@ def eth_unpack(data):
     except Exception:
         print("ERROR UNPACKING ETHERNET FRAME")
         return None
+
 #unpack 802.3 header into llc or llc+snap header
 def IEEE_802_unpack(data):
     try:
@@ -116,6 +111,7 @@ def IEEE_802_unpack(data):
     except Exception:
         print("ERROR UNPACKING 802.3 HEADER")
         return None
+
 #unpack arp header
 def arp_unpack(data):
     try:
@@ -137,7 +133,7 @@ def arp_unpack(data):
             'ip_dest': target_ip
         }
     except Exception:
-        print("ERRoR UNPACKING ARP HEADER")
+        print("ERROR UNPACKING ARP HEADER")
         return None
 
 #unpack ipv4 header
@@ -160,7 +156,7 @@ def ipv4_unpack(data):
             'header_length': header_length,
             'data': data[header_length:]
         }
-    except Exception:
+    except Exception as e:
         print("ERROR UNPACKING IPv4 HEADER")
         return None
     
