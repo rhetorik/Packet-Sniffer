@@ -1,6 +1,12 @@
 import sys
 
 control_frame = {
+            1: "Reserved",
+            2: "Reserved",
+            3: "Reserved",
+            4: "Reserved",
+            5: "Reserved",
+            6: "Reserved",
             7: "Control Wrapper",
             8: "Block ACK REQ",
             9: "Block ACK",
