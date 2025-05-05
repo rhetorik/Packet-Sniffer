@@ -37,4 +37,4 @@ sudo python3 spoof.py --flags
   * --destip ip SEND PACKET TO ip
   * --srcip ip PACKET GOING TO BE SENT FROM ip
   * --destmac mac SEND PACKET TO mac
-  --srcmac mac PACKET GOING TO BE SENT FROM mac
+  * --srcmac mac PACKET GOING TO BE SENT FROM mac
