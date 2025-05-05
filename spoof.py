@@ -81,7 +81,9 @@ def tcp(tcp_flags, src_mac, dest_mac, src_ip, dest_ip, src_port, dest_port):
         sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW)
         sock.bind((interface, 0))
         sock.send(packet)
-        print(f"sent spoofed packet from {src_ip}:{src_port} to {dest_ip}:{dest_port}")
+        print(f"Sent spoofed tcp packet:")
+        print(f"\tSource MAC: {src_mac.hex(":")} | Destination MAC: {dest_mac.hex(":")}")
+        print(f"\tSource IP: {src_ip} : Source Port: {src_port} | Destination IP: {dest_ip} Destination Port: {dest_port}")
         return
     except socket.error:
         print("ERROR SENDING TCP MESSAGE")
